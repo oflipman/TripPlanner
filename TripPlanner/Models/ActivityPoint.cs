@@ -1,3 +1,5 @@
+using TripPlanner.ViewModels;
+
 namespace TripPlanner.Models
 {
     using System;
@@ -49,6 +51,8 @@ namespace TripPlanner.Models
 
         public long OpeningTime { get; set; }
 
-        public long ClosingTime { get; set; }                                               
+        public long ClosingTime { get; set; }
+
+        public Location Location => new Location(GEPSLatitude, GEPSLongtitude);
     }
 }

@@ -7,16 +7,16 @@ namespace TripPlanner.ViewModels
 {
     public class TimeSlot
     {
-        public int StartTime;
-        public int EndTime;
+        public double StartTime;
+        public double EndTime;
 
-        public TimeSlot(int startTime, int endTime)
+        public TimeSlot(double startTime, double endTime)
         {
             StartTime = startTime;
             EndTime = endTime;
         }
 
-        public bool IsInTimeSlot(int startTime, int endTime)
+        public bool IsInTimeSlot(double startTime, double endTime)
         {
             return startTime >= StartTime && endTime <= EndTime;
         }

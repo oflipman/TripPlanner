@@ -148,6 +148,7 @@
     <Compile Include="ViewModels\DayTrip.cs" />
     <Compile Include="ViewModels\Location.cs" />
     <Compile Include="ViewModels\Path.cs" />
+    <Compile Include="ViewModels\TimeWindow.cs" />
     <Compile Include="ViewModels\Trip.cs" />
     <Compile Include="ViewModels\TripPlan.cs" />
     <Compile Include="ViewModels\UserInformation.cs" />

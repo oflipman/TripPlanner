@@ -5,6 +5,7 @@ using System.Dynamic;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Web;
+using System.Web.Services.Protocols;
 using System.Web.UI.WebControls;
 using TripPlanner.Extensions;
 using TripPlanner.Models;
@@ -67,7 +68,7 @@ namespace TripPlanner.BL
 
         public static void FillDay(DayOfTrip dayOfTrip, List<ActivityPoint> remainedActivities, Dictionary<eActivityType, int> preferences)
         {
-            TimeSlot timeSlot;
+            TimeWindow timeWindow;
 
             //sort first by near to main acitivity then by user prefrences
             //TODO: add sort by rank
@@ -76,54 +77,88 @@ namespace TripPlanner.BL
                     new Location(dayOfTrip.MainActivity.Activity.GEPSLatitude, dayOfTrip.MainActivity.Activity.GEPSLongtitude)))
                 .ThenByDescending(a => GetMatchGrade(a, preferences)).ToList();
 
-            while ((timeSlot = dayOfTrip.GetNextEmptyTimeSlot()) != null)
+            while ((timeWindow = dayOfTrip.GetNextEmptyTimeWindow()) != null)
             {
-                ActivityTimeSlot activityTimeSlot = null;
+                List<ActivityTimeSlot> activities = null;
                 foreach (var activity in sortedByLocationAcitivities)
                 {
-                    if((activityTimeSlot = FindTimeSlotForActivity(activity, timeSlot)) != null)
+                    if((activities = TryFindTimeForActivityAndTravel(activity, timeWindow)) != null)
                     {
-                        dayOfTrip.AddActivity(activityTimeSlot);
+                        dayOfTrip.AppendActivities(activities);
                         sortedByLocationAcitivities.Remove(activity);
                         remainedActivities.Remove(activity);
                         break;
                     }
                 }
 
-                if (activityTimeSlot == null)
+                if (activities == null)
                 {
-                    dayOfTrip.AddActivity(new ActivityTimeSlot(timeSlot, null));
+                    dayOfTrip.AddActivity(new ActivityTimeSlot(timeWindow.TimeSlot, null));
                 }
             }
 
-            dayOfTrip.SortedActivities.RemoveAll(a => a.Activity == null); //Remove empty time slots
+            dayOfTrip.SortedActivities.RemoveAll(a => a.Activity == null && a.IsTraveling == false); //Remove empty time slots
         }
 
-        public static ActivityTimeSlot FindTimeSlotForActivity(ActivityPoint activityPoint, TimeSlot freeTimeSlot)
+        public static List<ActivityTimeSlot> TryFindTimeForActivityAndTravel(ActivityPoint activityPoint, TimeWindow freeTimeWindow)
         {
-            var duration = (int)activityPoint.AvgSpendingTimeInHours;
+            var activityPointAndTravel = new List<ActivityTimeSlot>();
+            var drivingTimeToActivity =
+                CalcDrivingTime(freeTimeWindow.ActivityBefore?.Activity?.Location, activityPoint.Location);
+            var drivingTimeFromActivity = CalcDrivingTime(activityPoint.Location, freeTimeWindow.ActivityAfter?.Activity?.Location);
+            var duration = (int)activityPoint.AvgSpendingTimeInHours + drivingTimeToActivity + drivingTimeFromActivity;
+            ActivityTimeSlot activityTimeSlot = null;
 
-            if (duration > freeTimeSlot.EndTime - freeTimeSlot.StartTime)
+            if (duration > freeTimeWindow.TimeSlot.EndTime - freeTimeWindow.TimeSlot.StartTime)
             {
                 return null;
             }
 
-            if (activityPoint.OpeningTime < freeTimeSlot.StartTime && freeTimeSlot.StartTime + duration <= activityPoint.ClosingTime)
+            if (activityPoint.OpeningTime < freeTimeWindow.TimeSlot.StartTime && freeTimeWindow.TimeSlot.StartTime + duration <= activityPoint.ClosingTime)
             {
-                return new ActivityTimeSlot(new TimeSlot(freeTimeSlot.StartTime, freeTimeSlot.StartTime + duration), activityPoint);
+                activityTimeSlot = new ActivityTimeSlot(new TimeSlot(freeTimeWindow.TimeSlot.StartTime + drivingTimeToActivity, freeTimeWindow.TimeSlot.StartTime + activityPoint.AvgSpendingTimeInHours + drivingTimeToActivity), activityPoint);
             }
 
-            if (activityPoint.ClosingTime > freeTimeSlot.EndTime && freeTimeSlot.EndTime - duration >= activityPoint.OpeningTime)
+            if (activityPoint.ClosingTime > freeTimeWindow.TimeSlot.EndTime && freeTimeWindow.TimeSlot.EndTime - duration >= activityPoint.OpeningTime)
             {
-                return new ActivityTimeSlot(new TimeSlot(freeTimeSlot.EndTime - duration, freeTimeSlot.EndTime), activityPoint);
+                activityTimeSlot = new ActivityTimeSlot(new TimeSlot(freeTimeWindow.TimeSlot.EndTime - activityPoint.AvgSpendingTimeInHours - drivingTimeFromActivity, freeTimeWindow.TimeSlot.EndTime - drivingTimeFromActivity), activityPoint);
             }
 
-            if (activityPoint.OpeningTime >= freeTimeSlot.StartTime && activityPoint.OpeningTime + duration <= freeTimeSlot.EndTime)
+            if (activityPoint.OpeningTime >= freeTimeWindow.TimeSlot.StartTime && activityPoint.OpeningTime + duration <= freeTimeWindow.TimeSlot.EndTime)
             {
-                return new ActivityTimeSlot(new TimeSlot((int)activityPoint.OpeningTime, (int)activityPoint.OpeningTime + duration), activityPoint);
+                activityTimeSlot = new ActivityTimeSlot(new TimeSlot(activityPoint.OpeningTime + drivingTimeToActivity, activityPoint.OpeningTime + activityPoint.AvgSpendingTimeInHours + drivingTimeToActivity), activityPoint);
             }
 
-            return null;
+            if (activityTimeSlot == null)
+            {
+                return null;
+            }
+
+            var startTime = activityTimeSlot.TimeSlot.StartTime;
+            var endTime = activityTimeSlot.TimeSlot.EndTime;
+            if (drivingTimeToActivity > 0)
+            {
+                activityPointAndTravel.Add(new ActivityTimeSlot(new TimeSlot(startTime - drivingTimeToActivity, startTime), null, true));
+            }
+
+            activityPointAndTravel.Add(activityTimeSlot);
+
+            if (drivingTimeFromActivity > 0)
+            {
+                activityPointAndTravel.Add(new ActivityTimeSlot(new TimeSlot(endTime, endTime + drivingTimeFromActivity), null, true));
+            }
+
+            return activityPointAndTravel;
+        }
+
+        public static double CalcDrivingTime(Location from, Location to)
+        {
+            if (from == null | to == null)
+            {
+                return 0;
+            }
+
+            return 1;
         }
     }
 }

@@ -8,10 +8,10 @@ namespace TripPlanner.ViewModels
 {
     public class DayOfTrip
     {
-        public int StartHour;
-        public int EndHour;
-        public int LunchHour;
-        public int DinnerHour;
+        public double StartHour;
+        public double EndHour;
+        public double LunchHour;
+        public double DinnerHour;
         public ActivityTimeSlot MainActivity;
 
         public List<ActivityTimeSlot> SortedActivities { get; set; }
@@ -77,22 +77,30 @@ namespace TripPlanner.ViewModels
             SortedActivities = SortedActivities.OrderBy(a => a.TimeSlot.StartTime).ToList();
         }
 
-        public TimeSlot GetNextEmptyTimeSlot()
+        public void AppendActivities(List<ActivityTimeSlot> activities)
+        {
+            SortedActivities.AddRange(activities);
+            SortedActivities = SortedActivities.OrderBy(a => a.TimeSlot.StartTime).ToList();
+        }
+
+        public TimeWindow GetNextEmptyTimeWindow()
         {
             var startTime = StartHour;
+            ActivityTimeSlot activityBefore = null;
             foreach (var activity in SortedActivities)
             {
                 if (startTime < activity.TimeSlot.StartTime)
                 {
-                    return new TimeSlot(startTime, activity.TimeSlot.StartTime);
+                    return new TimeWindow(new TimeSlot(startTime, activity.TimeSlot.StartTime), activityBefore, activity);
                 }
 
                 startTime = activity.TimeSlot.EndTime;
+                activityBefore = activity;
             }
 
             if (startTime < EndHour)
             {
-                return new TimeSlot(startTime, EndHour);
+                return new TimeWindow(new TimeSlot(startTime, EndHour), SortedActivities.LastOrDefault(), null);
             }
 
             return null;

@@ -10,11 +10,13 @@ namespace TripPlanner.ViewModels
     {
         public TimeSlot TimeSlot;
         public ActivityPoint Activity;
+        public bool IsTraveling;
 
-        public ActivityTimeSlot(TimeSlot timeSlot, ActivityPoint activityPoint)
+        public ActivityTimeSlot(TimeSlot timeSlot, ActivityPoint activityPoint, bool isTraveling = false)
         {
             TimeSlot = timeSlot;
             Activity = activityPoint;
+            IsTraveling = isTraveling;
         }
     }
 }
